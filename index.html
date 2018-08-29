@@ -1,0 +1,143 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <title>Compile-time programming in C++20 and beyond</title>
+    <meta name="author" content="Louis Dionne">
+
+    <link rel="stylesheet" href="reveal/css/reveal.css">
+    <link rel="stylesheet" href="reveal/css/theme/black.css">
+    <link rel="stylesheet" href="plugin/line-numbers.css">
+    <link rel="stylesheet" href="custom.css">
+
+    <!-- Theme used for syntax highlighting of code -->
+    <link rel="stylesheet" href="highlight-styles/vs2015.css">
+
+    <!-- Printing and PDF exports -->
+    <script>
+      var link = document.createElement( 'link' );
+      link.rel = 'stylesheet';
+      link.type = 'text/css';
+      link.href = window.location.search.match( /print-pdf/gi ) ? 'reveal/css/print/pdf.css' : 'reveal/css/print/paper.css';
+      document.getElementsByTagName( 'head' )[0].appendChild( link );
+    </script>
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides">
+        <section data-markdown=""
+                 data-separator="^====+$"
+                 data-separator-vertical="^----+$"
+                 data-notes="^Note:">
+        <script type="text/template">
+
+## Compile-time programming in C++20 and beyond
+#### Louis Dionne, CppCon 2018
+
+====
+
+- These slides are available at: https://ldionne.com/cppcon-2018-compile-time-programming
+- Their source code is available at: https://github.com/ldionne/cppcon-2018-compile-time-programming
+
+====
+
+<!-- .slide: class="slide-hidden" -->
+
+### Font test
+
+```c++
+class ThisIsAClass {
+
+};
+
+int main() {
+  // this is a comment
+  std::vector<Foobar> foobar;
+
+  foobar.push_back(Foo{...});
+  foobar.push_back(Bar{...});
+  foobar.push_back(Baz{...});
+
+  for (auto& x : foobar) {
+    x.do_something();
+  }
+}
+```
+
+==============================================================================
+
+TODO
+
+====
+
+### Thank you
+
+https://ldionne.com
+
+        </script>
+        </section>
+      </div>
+    </div>
+
+    <script src="js/jquery-3.2.1.min.js"></script>
+    <script src="reveal/js/reveal.js"></script>
+    <script src="reveal/lib/js/head.min.js"></script>
+
+    <script>
+      Reveal.initialize({
+        slideNumber: 'c', // 'c/t' -> useful when authoring to know how many slides there are
+        history: true,
+        transition: 'none',
+
+        // Default settings for charts embedded in the presentation
+        chart: {
+          defaults: {
+            global: {
+              responsive: true,
+              animation: null,
+              title: { fontColor: "#FFF" },
+              legend: {
+                labels: {
+                  fontColor: "#FFF",
+                  fontSize: 20
+                }
+              }
+            },
+            scale: {
+              scaleLabel: { fontColor: "#FFF" },
+              gridLines: { color: "#FFF", zeroLineColor: "#FFF" },
+              ticks: { fontColor: "#FFF" }
+            }
+          }
+        },
+
+        dependencies: [
+          { src: 'reveal/plugin/markdown/marked.js' },
+          { src: 'reveal/plugin/markdown/markdown.js' },
+          { src: 'reveal/plugin/notes/notes.js', async: true },
+          { src: 'reveal/plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+          { src: 'plugin/line-numbers.js'}
+        ]
+      });
+
+      // Remove all DOM elements with the 'slide-hidden' class. This allows
+      // statically marking slides as hidden to exclude them from the
+      // presentation.
+      Reveal.addEventListener('ready', function(event) {
+        $(".slide-hidden").each(function(index, slide) {
+          slide.remove();
+        });
+      });
+
+      // Add the line-numbers class to all code blocks, so that code examples
+      // have line numbers.
+      Reveal.addEventListener('ready', function(event) {
+        $("pre>code").each(function(index, block) {
+          block.classList.add("line-numbers");
+        });
+      });
+    </script>
+  </body>
+</html>
