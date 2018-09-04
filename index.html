@@ -36,6 +36,8 @@
 ## Compile-time programming in C++20 and beyond
 #### Louis Dionne, CppCon 2018
 
+<!-- TODO: At all times, make it clear what is expected for C++20 and what isn't -->
+
 ====
 
 - These slides are available at: https://ldionne.com/cppcon-2018-compile-time-programming
@@ -68,7 +70,458 @@ int main() {
 
 ==============================================================================
 
-TODO
+### Why do we care about compile-time programming?
+
+====
+
+### Constant initialization
+
+TODO: Lookup table of sorts, it should be ROMed
+
+====
+
+### Reflection
+
+TODO: Show simple program that computes some property about a type
+
+====
+
+### Code generation
+
+TODO: Show a generic JSON generator or a hash function, for example
+
+==============================================================================
+
+### It used to be a nerdy topic
+
+Even among C++ programmers :-)
+
+====
+
+### Now all the cool kids are on it
+
+- Standard containers and constexpr: [p0784](http://wg21.link/p0784)
+- Making `std::vector` constexpr: [p1004](http://wg21.link/p1004)
+- Making `<algorithm>` constexpr: [p0202](http://wg21.link/p0202) & friends
+- `std::is_constant_evaluated()`: [p0595](http://wg21.link/p0595)
+- `constexpr!` functions: [p1073](http://wg21.link/p1073)
+- The Reflection TS: [n4746](http://wg21.link/n4746)
+- Metaclasses: [p0707](http://wg21.link/p0707)
+- Mental model for compile-time programming: [p0992](http://wg21.link/p0992)
+- Value-based reflection: [p0993](http://wg21.link/p0993)
+- Calling virtual functions in `constexpr`: [p1064](http://wg21.link/p1064)
+- `try-catch` in constexpr: [p1002](http://wg21.link/p1002)
+- Class Types in Non-Type Template Parameters: [p0732](http://wg21.link/p0732)
+
+<!-- TODO: make sure the bottom of the list fits -->
+
+====
+
+### This can be hard to follow
+
+Even committee members are confused
+
+====
+
+### So, what's the plan?
+
+1. Make (almost) all of C++ available in `constexpr`
+2. Provide a `constexpr` API to _query_ the compiler
+3. Provide a means for modifying the AST
+
+Note:
+This is C++ kid, there's no plan!
+
+==============================================================================
+
+### Step 1: Expanding `constexpr`
+
+Necessary in order to use non-trivial data structures and execute non-trivial
+logic at compile-time.
+
+====
+
+#### In C++11, `constexpr` was very limited
+
+- Functions with a single return statement
+
+====
+
+#### In C++14, many restrictions lifted
+
+- Loops
+- `if` statements
+- variables can be modified
+- lambdas can be used
+- etc...
+
+====
+
+#### In C++17, `constexpr` is still limited
+
+- No allocations
+- No try-catch
+- No virtual calls
+- No `reinterpret_cast`
+
+====
+
+This means we can't use variable-size containers
+
+```c++
+template <typename Predicate>
+constexpr std::vector<int> filter(int* it, int* last, Predicate pred) {
+  std::vector<int> result;
+  for (; it != last; ++it) {
+    if (pred(*it)) {
+      result.push_back(*it);
+    }
+  }
+  return result;
+}
+
+constexpr int ints[] = {1, 2, 3, 4, 5, 6};
+constexpr std::vector<int> odds = filter(begin(ints), end(ints), is_odd);
+// doesn't work!
+```
+
+====
+
+We have to use fixed-size arrays, which is painful
+
+```c++
+template <std::size_t K, typename Predicate>
+constexpr std::array<int, K> filter(int* it, int* last, Predicate pred) {
+  std::array<int, K> result;
+  int* out = begin(result);
+  for (; it != last; ++it) {
+    if (pred(*it)) {
+      *out++ = *it;
+    }
+  }
+  return result;
+}
+
+constexpr int ints[] = {1, 2, 3, 4, 5, 6};
+constexpr std::array<int, 3> odds = filter<3>(begin(ints), end(ints), is_odd);
+```
+
+<!-- TODO: code snippet doesn't fit -->
+
+Note:
+Problem is that we don't know the size of the output sequence in advance.
+
+====
+
+#### Constexpr algorithms don't compose well
+
+====
+
+### Enter [p0784](http://wg21.link/p0784)
+
+- Enables new expressions in `constexpr`
+- Makes `std::allocator` usable in `constexpr`
+- Promotes some `constexpr` objects to static storage
+
+====
+
+#### The following becomes valid
+
+```c++
+constexpr int* square(int* first, int* last) {
+  std::size_t N = last - first;
+  int* result = new int[N]; // <== HERE
+  for (std::size_t i = 0; i != N; ++i, ++first) {
+    result[i] = *first * *first;
+  }
+  return result;
+}
+
+constexpr void hello() {
+  int ints[] = {1, 2, 3, 4, 5};
+  int* squared = square(std::begin(ints), std::end(ints));
+  delete[] squared;
+}
+```
+
+====
+
+### Obvious next step
+
+Make `std::vector` constexpr
+
+====
+
+#### But `std::vector` uses try-catch
+
+So make try-catch constexpr!
+
+Note:
+Try-catch is used to provide the strong exception guarantee in case the
+underlying operation fails.
+
+====
+
+### Enter [p1002](http://wg21.link/p1002)
+
+```c++
+template <std::size_t N>
+constexpr std::array<int, N>
+square(std::array<int, N> array, int from, int to) {
+  try {
+    for (; from != to; ++from) {
+      array.at(from) = array.at(from) * array.at(from);
+    }
+  } catch (std::out_of_range const& e) {
+    // handle that
+  }
+  return array;
+}
+
+constexpr auto OK     = square(std::array{1, 2, 3, 4}, 0, 4);
+constexpr auto NOT_OK = square(std::array{1, 2, 3, 4}, 0, 10);
+```
+
+====
+
+### But it's not as cool as you think
+
+`throw` is still not allowed
+
+====
+
+This works because we never execute a `throw` statement:
+
+```c++
+constexpr auto OK = square(std::array{1, 2, 3, 4}, 0, 4);
+```
+
+====
+
+This fails when we execute the `throw` inside `array::at`:
+
+```c++
+constexpr auto NOT_OK = square(std::array{1, 2, 3, 4}, 0, 10);
+```
+
+====
+
+We're never given the chance to handle the exception
+
+Note:
+Implementing full EH at compile-time is tricky -- compiler has to unwind the
+stack, etc..
+
+====
+
+In the future, we can extend the language
+
+====
+
+### Back to `std::vector`
+
+In C++20, this will just work:
+
+```c++
+template <typename Predicate>
+constexpr std::vector<int> filter(int* it, int* last, Predicate pred) {
+  std::vector<int> result;
+  for (; it != last; ++it) {
+    if (pred(*it)) {
+      result.push_back(*it);
+    }
+  }
+  return result;
+}
+
+constexpr std::vector<int> ints = {1, 2, 3, 4, 5, 6};
+constexpr std::vector<int> odds = filter(begin(ints), end(ints), is_odd);
+```
+
+====
+
+### Promotion to static storage
+
+Also called non-transient allocations
+
+====
+
+#### What happens with this code?
+Where is `table` stored?
+
+```c++
+constexpr std::vector<int> table = compute_table();
+
+int main(int argc, char* argv[]) {
+  int from = std::atoi(argv[1]);
+  int to = std::atoi(argv[2]);
+  for (; from != to; ++from) {
+    std::cout << table[from] << std::endl;
+  }
+}
+```
+
+====
+
+#### Answer: promoted to static storage
+
+- If a constexpr object "leaks" from compile-time
+- And its destructor would clean up if it were called
+- Then it is promoted to static storage
+
+====
+
+### That's really nothing new
+
+Here, `table` will be in the data segment
+
+```c++
+constexpr std::array<int, 4> table = {1, 2, 3, 4};
+
+int main(int argc, char* argv[]) {
+  int from = std::atoi(argv[1]);
+  int to = std::atoi(argv[2]);
+  for (; from != to; ++from) {
+    std::cout << table[from] << std::endl;
+  }
+}
+```
+
+====
+
+If the destructor would not clean up, then it's not a constant expression
+
+====
+
+#### Corollary
+If you can evaluate a function call in a constant expression, then that
+function call is leak-free for the provided inputs.
+
+====
+
+The compiler is playing the leak detector!
+
+====
+
+### Future constexpr additions
+
+- `std::string`
+- `std::map` and `std::unordered_map`
+- `std::function`?
+- Almost everything? Join the effort!
+
+====
+
+### Challenges
+
+- `reinterpret_cast` (e.g. `std::string` SBO)
+- non-constexpr builtins (e.g. `__builtin_memcpy`)
+- Raw memory allocation (e.g. `malloc`)
+- Other annotations (e.g. UBSan in libc++)
+
+====
+
+### Aside: why no `reinterpret_cast`?
+
+- Compiler has to catch UB inside `constexpr`
+- Otherwise the compilation itself is UB and you get an arbitrary program
+- `reinterpret_cast` makes UB difficult to catch
+
+====
+
+### Aside: why no raw allocation?
+
+- Similar problem as `reinterpret_cast`
+- Compiler hands you an arbitrary chunk of memory
+- Trusts you to initialize and manage lifetime properly
+- Otherwise, UB during compilation
+
+====
+
+### Why is this a problem?
+
+====
+
+`constexpr` means "this _can_ be executed at compile-time", not
+"this _must_ be executed at compile-time"
+
+====
+
+This means most `constexpr` functions should be usable both at compile-time
+and at runtime
+
+====
+
+We don't want to pessimize good runtime C++ code
+
+====
+
+### Enter [p0595](http://wg21.link/p0595)
+
+- Adds `std::is_constant_evaluated()`
+- Allows detecting whether the current function is evaluated as part
+  of a constant expression
+
+====
+
+### For example
+
+```c++
+template <typename T>
+void vector<T>::clear() noexcept {
+  size_t old_size = size();
+  // ...
+  __annotate_shrink(old_size); // ASAN annotation
+  __invalidate_all_iterators(); // Debug mode checks
+}
+```
+
+====
+
+### Making this constexpr
+
+```c++
+template <typename T>
+constexpr void vector<T>::clear() noexcept {
+  size_t old_size = size();
+  // ...
+  if (!std::is_constant_evaluated()) {
+    __annotate_shrink(old_size); // ASAN annotation
+    __invalidate_all_iterators(); // Debug mode checks
+  }
+}
+```
+
+====
+
+### How this works
+
+```c++
+constexpr int f() {
+  std::vector<int> v = {1, 2, 3};
+  v.clear();
+  return 0;
+}
+
+constexpr int X = f(); // is_constant_evaluated() is true, no annotations
+int Y = f(); // is_constant_evaluated() is false, normal runtime code
+```
+
+==============================================================================
+
+### Step 2: an API to speak to the compiler
+
+TODO:
+- Cover the current reflection TS
+- Explain how we plan to change it to value-based syntax
+
+==============================================================================
+
+### Step 3: Code generation
+
+TODO: Explain the different ways we might achieve this:
+- Metaclasses
+- Immediate functions / constexpr!
 
 ====
 
@@ -90,6 +543,7 @@ https://ldionne.com
         slideNumber: 'c', // 'c/t' -> useful when authoring to know how many slides there are
         history: true,
         transition: 'none',
+        controlsTutorial: false,
 
         // Default settings for charts embedded in the presentation
         chart: {
