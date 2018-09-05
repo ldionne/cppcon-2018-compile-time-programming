@@ -36,7 +36,11 @@
 ## Compile-time programming in C++20 and beyond
 #### Louis Dionne, CppCon 2018
 
-<!-- TODO: At all times, make it clear what is expected for C++20 and what isn't -->
+<!-- TODO:
+  - At all times, make it clear what is expected for C++20 and what isn't
+  - Mention compilation speed improvements over TMP
+  - Talk about Immediate functions / `constexpr!`
+-->
 
 ====
 
@@ -76,23 +80,82 @@ int main() {
 
 ### Constant initialization
 
-TODO: Lookup table of sorts, it should be ROMed
+```c++
+// Lookup table for e^i with i in [0, 1000]
+constexpr std::array<double, 1001> exps = compute_exp(0, 1000);
+
+int main() {
+  int i = read_from_user();
+  std::cout << exps[i] << std::endl;
+}
+```
+
+Note:
+- No static initialization
+- Hardcoded in the data segment
 
 ====
 
-### Reflection
+### Defining flexible APIs
 
-TODO: Show simple program that computes some property about a type
+```c++
+template <typename T>
+std::string to_json(T const& t) {
+  std::string result = "{";
+  for (auto member : members_of(t)) { // not valid today!
+    result += member.name();
+    result += ":";
+    result += to_json(member.value());
+    result += ",";
+  }
+  result += "}";
+  return result;
+}
+
+struct Foo {
+  int x;
+  float y;
+  double z;
+};
+
+std::string json = to_json(Foo{1, 2.2f, 3.3});
+```
+
+Note:
+This is indeed compile-time programming since the members are known at
+compile-time. This wouldn't be a "real" for-loop.
 
 ====
 
-### Code generation
+### Boilerplate reduction
 
-TODO: Show a generic JSON generator or a hash function, for example
+```c++
+enum class Color { RED, GREEN, BLUE, YELLOW, PURPLE };
+
+std::ostream& operator<<(std::ostream& out, Color color) {
+  switch (color) {
+    case Color::RED:    out << "RED";    break;
+    case Color::GREEN:  out << "GREEN";  break;
+    case Color::BLUE:   out << "BLUE";   break;
+    case Color::YELLOW: out << "YELLOW"; break;
+    case Color::PURPLE: out << "PURPLE"; break;
+  }
+  return out;
+}
+
+int main() {
+  Color color = read_from_user();
+  std::cout << color << std::endl;
+}
+```
+
+====
+
+### Seriously, who has seen this code?
 
 ==============================================================================
 
-### It used to be a nerdy topic
+### Solving these problems used to be a nerdy topic
 
 Even among C++ programmers :-)
 
@@ -107,13 +170,11 @@ Even among C++ programmers :-)
 - `constexpr!` functions: [p1073](http://wg21.link/p1073)
 - The Reflection TS: [n4746](http://wg21.link/n4746)
 - Metaclasses: [p0707](http://wg21.link/p0707)
-- Mental model for compile-time programming: [p0992](http://wg21.link/p0992)
 - Value-based reflection: [p0993](http://wg21.link/p0993)
 - Calling virtual functions in `constexpr`: [p1064](http://wg21.link/p1064)
 - `try-catch` in constexpr: [p1002](http://wg21.link/p1002)
-- Class Types in Non-Type Template Parameters: [p0732](http://wg21.link/p0732)
-
-<!-- TODO: make sure the bottom of the list fits -->
+<!-- - Mental model for compile-time programming: [p0992](http://wg21.link/p0992) -->
+<!-- - Class Types in Non-Type Template Parameters: [p0732](http://wg21.link/p0732) -->
 
 ====
 
@@ -203,10 +264,9 @@ constexpr std::array<int, K> filter(int* it, int* last, Predicate pred) {
 }
 
 constexpr int ints[] = {1, 2, 3, 4, 5, 6};
-constexpr std::array<int, 3> odds = filter<3>(begin(ints), end(ints), is_odd);
+constexpr std::array<int, 3> odds =
+                      filter<3>(begin(ints), end(ints), is_odd);
 ```
-
-<!-- TODO: code snippet doesn't fit -->
 
 Note:
 Problem is that we don't know the size of the output sequence in advance.
@@ -399,7 +459,7 @@ function call is leak-free for the provided inputs.
 
 ====
 
-The compiler is playing the leak detector!
+The compiler turns into a leak detector!
 
 ====
 
@@ -407,7 +467,8 @@ The compiler is playing the leak detector!
 
 - `std::string`
 - `std::map` and `std::unordered_map`
-- `std::function`?
+- `std::optional`/`std::variant`?
+- Math functions?
 - Almost everything? Join the effort!
 
 ====
@@ -507,21 +568,314 @@ constexpr int X = f(); // is_constant_evaluated() is true, no annotations
 int Y = f(); // is_constant_evaluated() is false, normal runtime code
 ```
 
+====
+
+### Summary
+
+- Expand `constexpr` to support more use cases
+- Allow persisting data structures to the _data segment_
+- Allow writing different code for `constexpr` and runtime when needed
+
 ==============================================================================
 
 ### Step 2: an API to speak to the compiler
 
-TODO:
-- Cover the current reflection TS
-- Explain how we plan to change it to value-based syntax
+====
+
+### Basically, extract information about types
+
+====
+
+### We can already do some of it
+
+- type_traits
+- operators like `sizeof`
+
+```c++
+struct Foo {
+  int x;
+  int y;
+};
+
+constexpr std::size_t size = sizeof(Foo);
+constexpr bool is_aggregate = std::is_aggregate_v<Foo>;
+```
+
+====
+
+### But we're severely limited
+
+```c++
+struct Foo {
+  int x;
+  int y;
+};
+
+constexpr auto members = ???; // list of Foo's members
+```
+
+====
+
+### We lack:
+
+- A way to query many properties
+- A way to represent the answer to those queries
+
+====
+
+### Enter the Reflection TS: [n4746](http://wg21.link/n4746)
+
+====
+
+### Purpose:
+
+- Figure out what this query API should look like
+- Not the specific implementation of this API
+- For now, the API uses template metaprogramming
+
+====
+
+### Example: extracting members
+
+```c++
+struct Foo {
+  int x;
+  int y;
+};
+
+using MetaFoo = reflexpr(Foo);
+
+using Members = std::reflect::get_data_members_t<MetaFoo>;
+
+using X = std::reflect::get_element_t<0, Members>; // Not an int!
+
+constexpr bool is_public = std::reflect::is_public_v<X>;
+
+using TypeOfX = std::reflect::get_reflected_type_t<X>; // This is int!
+```
+
+Note:
+- `reflexpr(Foo)` is a magic type representing `Foo` in the compiler
+- `Members` is a magic type satisfying the `ObjectSequence` concept.
+- `X` is a magic type representing `Foo::x`
+
+====
+
+### Other features:
+- Get source line/column of a type definition
+- Get the name of an entity as a string
+- Get member types/enums/etc of a type
+- Get base classes of a type
+- Get enumerators of an enum
+- Get whether variable is `static`/`constexpr`
+- Get properties of base classes: `virtual`/`public`/etc
+
+<!-- TODO: Consider adding examples for those features -->
+
+====
+
+### More features planned in the future
+- Reflecting functions: [p0670](http://wg21.link/p0670)
+- Plans to reflect on arbitrary expressions too!!!
+
+<!-- TODO: Consider adding examples for those features -->
+
+====
+
+### Final syntax not settled yet: [p0953](http://wg21.link/p0953)
+
+```c++
+template <typename T>
+void dump() {
+  constexpr std::reflect::Record const* metaT = reflexpr(T);
+  std::cout << "name: " << metaT->get_display_name() << std::endl;
+  std::cout << "members:" << std::endl;
+  for(RecordMember const* member : metaT->get_public_data_members()) {
+      std::cout << member->get_type()->get_display_name() << ' '
+                << member->get_name() << std::endl;
+  }
+}
+
+struct Foo {
+  int x;
+  long y;
+  float z;
+};
+
+int main() {
+  dump<Foo>();
+}
+```
+
+====
+
+### Summary
+
+1. Reflection TS figures out the compiler query API
+2. Will rebase on top of the constexpr work
+3. Aim is to write normal-looking C++ code
 
 ==============================================================================
 
 ### Step 3: Code generation
 
-TODO: Explain the different ways we might achieve this:
-- Metaclasses
-- Immediate functions / constexpr!
+====
+
+### So far, we can:
+
+1. Write complex compile-time algorithms
+2. Query the compiler AST
+
+====
+
+### Now: modify the compiler's AST
+
+====
+
+### Alternatives on the table:
+
+1. Raw string injection
+2. Programmatic API
+3. Token-sequence injection
+
+====
+
+### Raw string injection ([p0633](http://wg21.link/p0633))
+
+```c++
+template <HashAlgorithm H, SimpleStruct S>
+void hash_append(H& h, S const& s) {
+  constexpr {
+    for (meta::info member : meta::data_members(reflexpr(s))) {
+      meta::queue(
+        meta::code("hash_append(h, s.", meta::name(member), ");")
+      );
+    }
+  }
+}
+```
+
+====
+
+### Programmatic API ([p0633](http://wg21.link/p0633))
+
+```c++
+template <HashAlgorithm H, SimpleStruct S>
+void hash_append(H& h, S const& s) {
+  constexpr {
+    for (meta::info member : meta::data_members(reflexpr(s))) {
+      meta::queue(meta::expr_statement(
+        meta::call_by_name("hash_append",
+                           reflexpr(h),
+                           meta::select_member(reflexpr(s), member))));
+    }
+  }
+}
+```
+
+====
+
+### Token-sequence injection ([p0633](http://wg21.link/p0633))
+
+```c++
+template <HashAlgorithm H, SimpleStruct S>
+void hash_append(H& h, S const& s) {
+  constexpr {
+    for (meta::info member : meta::data_members(reflexpr(s))) {
+      -> { hash_append(h, s.(.member.)); }
+    }
+  }
+}
+```
+
+====
+
+### What about metaclasses ([p0707](http://wg21.link/p0707))?
+
+```c++
+constexpr void interface(meta::type target, meta::type const source) {
+  compiler.require(source.variables().empty(),
+    "interfaces may not contain data");
+  for (auto f : source.functions()) {
+    compiler.require(!f.is_copy() && !f.is_move(),
+      "interfaces may not copy or move; consider"
+      " a virtual clone() instead");
+    if (!f.has_access())
+      f.make_public();
+    compiler.require(f.is_public(), "interface functions must be public");
+    f.make_pure_virtual();
+    ->(target) f;
+  }
+  ->(target) { virtual ~(source.name()$)() noexcept {} }
+}
+
+interface Shape { // MAGIC!!!
+  int area() const;
+  void scale_by(double factor);
+};
+```
+
+====
+
+### Metaclasses are built on top of code generation
+
+They're not a replacement for it
+
+====
+
+### Summary
+
+- Provide a way to influence the AST
+- Multiple options on the table
+- Should interact nicely with `constexpr` control flow
+- Metaclasses? Maybe, but it's an orthogonal problem
+
+====
+
+### What can we hope for?
+
+__This is just my optimistic prediction, not a promise!__
+
+====
+
+### C++20
+
+- More `constexpr`:
+  + `std::vector`, `std::string`, `std::map`
+  + language features required by those
+- `<experimental/reflect>` (syntax not determined)
+
+====
+
+### C++23
+
+- Even more `constexpr`: where do we stop?
+- Some code generation mechanism
+- `<experimental/reflect>` based on `constexpr`
+  + just `<reflect>` if we're lucky
+
+====
+
+### This will change the face of C++
+
+====
+
+### This opens endless possibilities
+
+- For incredible libraries
+- For code reuse
+- For interoperation with other languages
+- To shoot oneself in the foot
+
+Note:
+The Committee will tread carefully because a mistake in how these features
+are designed could make them useless or downright harmful.
+
+====
+
+### With great power comes great...
+
+### C++ programs!!! <!-- .element: class="fragment" -->
 
 ====
 
