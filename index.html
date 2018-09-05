@@ -231,7 +231,8 @@ This means we can't use variable-size containers
 
 ```c++
 template <typename Predicate>
-constexpr std::vector<int> filter(int* it, int* last, Predicate pred) {
+constexpr std::vector<int>
+filter(int* it, int* last, Predicate pred) {
   std::vector<int> result;
   for (; it != last; ++it) {
     if (pred(*it)) {
@@ -242,7 +243,8 @@ constexpr std::vector<int> filter(int* it, int* last, Predicate pred) {
 }
 
 constexpr int ints[] = {1, 2, 3, 4, 5, 6};
-constexpr std::vector<int> odds = filter(begin(ints), end(ints), is_odd);
+constexpr std::vector<int> odds =
+                      filter(begin(ints), end(ints), is_odd);
 // doesn't work!
 ```
 
@@ -252,7 +254,8 @@ We have to use fixed-size arrays, which is painful
 
 ```c++
 template <std::size_t K, typename Predicate>
-constexpr std::array<int, K> filter(int* it, int* last, Predicate pred) {
+constexpr std::array<int, K>
+filter(int* it, int* last, Predicate pred) {
   std::array<int, K> result;
   int* out = begin(result);
   for (; it != last; ++it) {
@@ -384,7 +387,8 @@ In C++20, this will just work:
 
 ```c++
 template <typename Predicate>
-constexpr std::vector<int> filter(int* it, int* last, Predicate pred) {
+constexpr std::vector<int>
+filter(int* it, int* last, Predicate pred) {
   std::vector<int> result;
   for (; it != last; ++it) {
     if (pred(*it)) {
@@ -395,7 +399,8 @@ constexpr std::vector<int> filter(int* it, int* last, Predicate pred) {
 }
 
 constexpr std::vector<int> ints = {1, 2, 3, 4, 5, 6};
-constexpr std::vector<int> odds = filter(begin(ints), end(ints), is_odd);
+constexpr std::vector<int> odds =
+                      filter(begin(ints), end(ints), is_odd);
 ```
 
 ====
@@ -564,8 +569,8 @@ constexpr int f() {
   return 0;
 }
 
-constexpr int X = f(); // is_constant_evaluated() is true, no annotations
-int Y = f(); // is_constant_evaluated() is false, normal runtime code
+constexpr int X = f(); // is_constant_evaluated() true, no annotations
+int Y = f(); // is_constant_evaluated() false, normal runtime code
 ```
 
 ====
@@ -765,9 +770,10 @@ void hash_append(H& h, S const& s) {
   constexpr {
     for (meta::info member : meta::data_members(reflexpr(s))) {
       meta::queue(meta::expr_statement(
-        meta::call_by_name("hash_append",
-                           reflexpr(h),
-                           meta::select_member(reflexpr(s), member))));
+        meta::call_by_name(
+          "hash_append",
+          reflexpr(h),
+          meta::select_member(reflexpr(s), member))));
     }
   }
 }
@@ -794,15 +800,9 @@ void hash_append(H& h, S const& s) {
 
 ```c++
 constexpr void interface(meta::type target, meta::type const source) {
-  compiler.require(source.variables().empty(),
-    "interfaces may not contain data");
   for (auto f : source.functions()) {
-    compiler.require(!f.is_copy() && !f.is_move(),
-      "interfaces may not copy or move; consider"
-      " a virtual clone() instead");
     if (!f.has_access())
       f.make_public();
-    compiler.require(f.is_public(), "interface functions must be public");
     f.make_pure_virtual();
     ->(target) f;
   }
