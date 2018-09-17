@@ -566,8 +566,11 @@ constexpr int f() {
   return 0;
 }
 
-constexpr int X = f(); // is_constant_evaluated() true, no annotations
-int Y = f(); // is_constant_evaluated() false, normal runtime code
+// is_constant_evaluated() true, no annotations
+constexpr int X = f();
+
+// is_constant_evaluated() false, normal runtime code
+int Y = f();
 ```
 
 ====
