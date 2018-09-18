@@ -66,6 +66,7 @@ int main() {
   for (auto& x : foobar) {
     x.do_something();
   }
+  return 0;
 }
 ```
 
@@ -83,7 +84,8 @@ constexpr std::array<double, 1001> exps = compute_exp(0, 1000);
 
 int main() {
   int i = read_from_user();
-  std::cout << exps[i] << std::endl;
+  std::cout << exps[i] << '\n';
+  return 0;
 }
 ```
 
@@ -99,21 +101,19 @@ Note:
 template <typename T>
 std::string to_json(T const& t) {
   std::string result = "{";
-  for (auto member : members_of(t)) { // not valid today!
-    result += member.name();
+  auto members = members_of(t); // not valid today!
+  for (auto member = begin(members); member != end(members); ++member){
+    result += member->name();
     result += ":";
-    result += to_json(member.value());
-    result += ",";
+    result += to_json(member->value());
+    if (std::next(member) != end(members))
+      result += ",";
   }
   result += "}";
   return result;
 }
 
-struct Foo {
-  int x;
-  float y;
-  double z;
-};
+struct Foo { int x; float y; double z; };
 
 std::string json = to_json(Foo{1, 2.2f, 3.3});
 ```
@@ -142,7 +142,8 @@ std::ostream& operator<<(std::ostream& out, Color color) {
 
 int main() {
   Color color = read_from_user();
-  std::cout << color << std::endl;
+  std::cout << color << '\n';
+  return 0;
 }
 ```
 
@@ -156,18 +157,22 @@ Even among C++ programmers :-)
 
 ### Now all the cool kids are on it
 
-- Standard containers and constexpr: [p0784](http://wg21.link/p0784)
-- Making `std::vector` constexpr: [p1004](http://wg21.link/p1004)
-- Making `<algorithm>` constexpr: [p0202](http://wg21.link/p0202) & friends
+- The Reflection TS: [wg21.link/n4746](http://wg21.link/n4746)
+- Standard containers and `constexpr`: [p0784](http://wg21.link/p0784)
+- Making `std::vector` `constexpr`: [p1004](http://wg21.link/p1004)
+- Making `<algorithm>` `constexpr`: [p0202](http://wg21.link/p0202) & al
 - `std::is_constant_evaluated()`: [p0595](http://wg21.link/p0595)
 - `constexpr!` functions: [p1073](http://wg21.link/p1073)
-- The Reflection TS: [n4746](http://wg21.link/n4746)
 - Metaclasses: [p0707](http://wg21.link/p0707)
 - Value-based reflection: [p0993](http://wg21.link/p0993)
 - Calling virtual functions in `constexpr`: [p1064](http://wg21.link/p1064)
-- `try-catch` in constexpr: [p1002](http://wg21.link/p1002)
+- `try-catch` in `constexpr`: [p1002](http://wg21.link/p1002)
 <!-- - Mental model for compile-time programming: [p0992](http://wg21.link/p0992) -->
 <!-- - Class Types in Non-Type Template Parameters: [p0732](http://wg21.link/p0732) -->
+
+Note:
+- Say something good about the direction group.
+- Also, mention wg21.link for all paper numbers
 
 ====
 
@@ -184,7 +189,7 @@ Even committee members are confused
 3. Provide a means for modifying the AST
 
 Note:
-This is C++ kid, there's no plan!
+Even though this is C++, we do have a plan!
 
 ==============================================================================
 
@@ -294,12 +299,12 @@ Problem is that we don't know the size of the output sequence in advance.
 
 ====
 
-#### Constexpr algorithms don't compose well
+#### `constexpr` algorithms don't compose well
 
 ====
 
 ### Enter [p0784](http://wg21.link/p0784)
-More constexpr containers
+More `constexpr` containers
 
 - Enables _new-expressions_ in `constexpr`
 - Makes `std::allocator` usable in `constexpr`
@@ -330,13 +335,13 @@ constexpr void hello() {
 
 ### Obvious next step
 
-Make `std::vector` constexpr
+Make `std::vector` `constexpr`
 
 ====
 
 #### But `std::vector` uses try-catch
 
-So make try-catch constexpr!
+So make try-catch `constexpr`!
 
 Note:
 Try-catch is used to provide the strong exception guarantee in case the
@@ -345,7 +350,7 @@ underlying operation fails.
 ====
 
 ### Enter [p1002](http://wg21.link/p1002)
-Try-catch blocks in constexpr functions
+Try-catch blocks in `constexpr` functions
 
 ```c++
 template <std::size_t N>
@@ -356,7 +361,7 @@ square(std::array<int, N> array, int from, int to) {
       array.at(from) = array.at(from) * array.at(from);
     }
   } catch (std::out_of_range const& e) {
-    // handle that
+    // ...
   }
   return array;
 }
@@ -384,7 +389,7 @@ square(std::array<int, N> array, int from, int to) {
       array.at(from) = array.at(from) * array.at(from);
     }
   } catch (std::out_of_range const& e) {
-    // handle that
+    // ...
   }
   return array;
 }
@@ -458,7 +463,7 @@ int main(int argc, char* argv[]) {
   int from = std::atoi(argv[1]);
   int to = std::atoi(argv[2]);
   for (; from != to; ++from) {
-    std::cout << table[from] << std::endl;
+    std::cout << table[from] << '\n';
   }
 }
 ```
@@ -467,7 +472,7 @@ int main(int argc, char* argv[]) {
 
 #### Answer: promoted to static storage
 
-- If a constexpr object "leaks" from compile-time
+- If a `constexpr` object "leaks" from compile-time
 - And its destructor would clean up if it were called
 - Then it is promoted to static storage
 
@@ -484,7 +489,7 @@ int main(int argc, char* argv[]) {
   int from = std::atoi(argv[1]);
   int to = std::atoi(argv[2]);
   for (; from != to; ++from) {
-    std::cout << table[from] << std::endl;
+    std::cout << table[from] << '\n';
   }
 }
 ```
@@ -505,7 +510,7 @@ The compiler turns into a leak detector!
 
 ====
 
-### Future constexpr additions
+### Future `constexpr` additions
 
 - `std::string`
 - `std::map` and `std::unordered_map`
@@ -518,11 +523,13 @@ The compiler turns into a leak detector!
 ### Challenges
 
 - `reinterpret_cast` (e.g. `std::string` SBO)
-- non-constexpr builtins (e.g. `__builtin_memcpy`)
+- non-`constexpr` builtins (e.g. `__builtin_memcpy`)
 - Raw memory allocation (e.g. `malloc`)
 - Other annotations (e.g. UBSan in libc++)
 
 ====
+
+<!-- .slide: class="slide-hidden" -->
 
 ### Aside: why no `reinterpret_cast`?
 
@@ -532,6 +539,8 @@ Note:
 - `reinterpret_cast` makes UB difficult to catch
 
 ====
+
+<!-- .slide: class="slide-hidden" -->
 
 ### Aside: why no raw allocation?
 
@@ -577,7 +586,7 @@ void vector<T>::clear() noexcept {
 
 ====
 
-### Making this constexpr
+### Making this `constexpr`
 
 ```c++
 template <typename T>
@@ -611,7 +620,7 @@ int Y = f();
 
 ====
 
-### Summary
+### Summary of `constexpr` changes
 
 - Expand `constexpr` to support more use cases
 - Allow persisting data structures to the _data segment_
@@ -730,12 +739,12 @@ Note:
 template <typename T>
 void dump() {
   constexpr std::reflect::Record metaT = reflexpr(T);
-  std::cout << "name: " << metaT.get_display_name() << std::endl;
-  std::cout << "members:" << std::endl;
+  std::cout << "name: " << metaT.get_display_name() << '\n';
+  std::cout << "members:" << '\n';
   std::vector<RecordMember> members = metaT.get_public_data_members();
   for (auto member : members) {
     std::cout << member.get_type().get_display_name() << ' '
-              << member.get_name() << std::endl;
+              << member.get_name() << '\n';
   }
 }
 
@@ -743,15 +752,16 @@ struct Foo { int x; long y; float z; };
 
 int main() {
   dump<Foo>();
+  return 0;
 }
 ```
 
 ====
 
-### Summary
+### Status of reflection
 
 1. Reflection TS figures out the compiler query API
-2. Will rebase on top of the constexpr work
+2. Will rebase on top of the `constexpr` work
 3. Aim is to write normal-looking C++ code
 
 ==============================================================================
@@ -857,9 +867,11 @@ interface Shape {
   int area() const;
   void scale_by(double factor);
 };
+```
 
-// magic...
+Magically transforms to
 
+```c++
 struct Shape {
   virtual int area() const = 0;
   virtual void scale_by(double factor) = 0;
@@ -915,7 +927,7 @@ using Shape = interface(reflexpr(struct { // hand waving
 
 ====
 
-### Summary
+### Status of code generation
 
 - Provide a way to influence the AST
 - Multiple options on the table
@@ -935,7 +947,7 @@ __This is just my optimistic prediction, not a promise!__
 - More `constexpr`:
   + `std::vector`, `std::string`, `std::map`
   + language features required by those
-- `<experimental/reflect>` (syntax not determined)
+- `<experimental/reflect>` (syntax TBD)
 
 ====
 
@@ -943,8 +955,7 @@ __This is just my optimistic prediction, not a promise!__
 
 - Even more `constexpr`: where do we stop?
 - Some code generation mechanism
-- `<experimental/reflect>` based on `constexpr`
-  + just `<reflect>` if we're lucky
+- `<reflect>` based on `constexpr`
 
 ====
 
