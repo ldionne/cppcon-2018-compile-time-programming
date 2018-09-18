@@ -146,10 +146,6 @@ int main() {
 }
 ```
 
-====
-
-### Seriously, who has seen this code?
-
 ==============================================================================
 
 ### Solving these problems used to be a nerdy topic
@@ -201,17 +197,42 @@ logic at compile-time.
 
 #### In C++11, `constexpr` was very limited
 
-- Functions with a single return statement
+```c++
+constexpr std::size_t countlower(char const* s,
+                                 std::size_t count = 0)
+{
+  return *s == '\0' ? count
+                    : 'a' <= *s && *s <= 'z'
+                        ?  countlower(s+1, count + 1)
+                        : countlower(s+1, count);
+}
+
+static_assert(countlower("aBCdeF") == 3, "");
+```
 
 ====
 
 #### In C++14, many restrictions lifted
 
+```c++
+constexpr std::size_t countlower(char const* s) {
+  std::size_t count = 0;
+  for (; *s != '\0'; ++s) {
+    if ('a' <= *s && *s <= 'z') {
+      ++count;
+    }
+  }
+  return count;
+}
+
+static_assert(countlower("aBCdeF") == 3, "");
+```
+
+Note:
 - Loops
 - `if` statements
 - variables can be modified
 - lambdas can be used
-- etc...
 
 ====
 
@@ -229,7 +250,7 @@ This means we can't use variable-size containers
 ```c++
 template <typename Predicate>
 constexpr std::vector<int>
-filter(int* it, int* last, Predicate pred) {
+filter(int const* it, int const* last, Predicate pred) {
   std::vector<int> result;
   for (; it != last; ++it) {
     if (pred(*it)) {
@@ -252,7 +273,7 @@ We have to use fixed-size arrays, which is painful
 ```c++
 template <std::size_t K, typename Predicate>
 constexpr std::array<int, K>
-filter(int* it, int* last, Predicate pred) {
+filter(int const* it, int const* last, Predicate pred) {
   std::array<int, K> result;
   int* out = begin(result);
   for (; it != last; ++it) {
@@ -278,8 +299,9 @@ Problem is that we don't know the size of the output sequence in advance.
 ====
 
 ### Enter [p0784](http://wg21.link/p0784)
+More constexpr containers
 
-- Enables new expressions in `constexpr`
+- Enables _new-expressions_ in `constexpr`
 - Makes `std::allocator` usable in `constexpr`
 - Promotes some `constexpr` objects to static storage
 
@@ -323,6 +345,7 @@ underlying operation fails.
 ====
 
 ### Enter [p1002](http://wg21.link/p1002)
+Try-catch blocks in constexpr functions
 
 ```c++
 template <std::size_t N>
@@ -350,31 +373,48 @@ constexpr auto NOT_OK = square(std::array{1, 2, 3, 4}, 0, 10);
 
 ====
 
-This works because we never execute a `throw` statement:
+Line 14 works because we never execute a `throw` statement:
 
 ```c++
-constexpr auto OK = square(std::array{1, 2, 3, 4}, 0, 4);
-```
+template <std::size_t N>
+constexpr std::array<int, N>
+square(std::array<int, N> array, int from, int to) {
+  try {
+    for (; from != to; ++from) {
+      array.at(from) = array.at(from) * array.at(from);
+    }
+  } catch (std::out_of_range const& e) {
+    // handle that
+  }
+  return array;
+}
 
-====
-
-This fails when we execute the `throw` inside `array::at`:
-
-```c++
+constexpr auto OK     = square(std::array{1, 2, 3, 4}, 0, 4);
 constexpr auto NOT_OK = square(std::array{1, 2, 3, 4}, 0, 10);
 ```
 
 ====
 
-We're never given the chance to handle the exception
+Line 15 fails when we execute the `throw` inside `array::at`:
 
-Note:
-Implementing full EH at compile-time is tricky -- compiler has to unwind the
-stack, etc..
+```c++
+template <class T, std::size_t Size>
+constexpr typename array<T, Size>::reference
+array<T, Size>::at(std::size_t n) {
+  if (n >= Size)
+    throw std::out_of_range("array::at"); // compilation error here
+
+  return elements_[n];
+}
+```
 
 ====
 
 In the future, we can extend the language
+
+Note:
+Implementing full EH at compile-time is tricky -- compiler has to unwind the
+stack, etc..
 
 ====
 
@@ -385,7 +425,7 @@ In C++20, this will just work:
 ```c++
 template <typename Predicate>
 constexpr std::vector<int>
-filter(int* it, int* last, Predicate pred) {
+filter(int const* it, int const* last, Predicate pred) {
   std::vector<int> result;
   for (; it != last; ++it) {
     if (pred(*it)) {
@@ -486,6 +526,7 @@ The compiler turns into a leak detector!
 
 ### Aside: why no `reinterpret_cast`?
 
+Note:
 - Compiler has to catch UB inside `constexpr`
 - Otherwise the compilation itself is UB and you get an arbitrary program
 - `reinterpret_cast` makes UB difficult to catch
@@ -494,6 +535,7 @@ The compiler turns into a leak detector!
 
 ### Aside: why no raw allocation?
 
+Note:
 - Similar problem as `reinterpret_cast`
 - Compiler hands you an arbitrary chunk of memory
 - Trusts you to initialize and manage lifetime properly
@@ -501,17 +543,11 @@ The compiler turns into a leak detector!
 
 ====
 
-### Why is this a problem?
+### Why are these limitations a problem?
 
 ====
 
-`constexpr` means "this _can_ be executed at compile-time", not
-"this _must_ be executed at compile-time"
-
-====
-
-This means most `constexpr` functions should be usable both at compile-time
-and at runtime
+Most `constexpr` functions should work both at compile-time and at runtime
 
 ====
 
@@ -533,7 +569,7 @@ We don't want to pessimize good runtime C++ code
 template <typename T>
 void vector<T>::clear() noexcept {
   size_t old_size = size();
-  // ...
+  // destroy [begin(), end())
   __annotate_shrink(old_size); // ASAN annotation
   __invalidate_all_iterators(); // Debug mode checks
 }
@@ -547,7 +583,7 @@ void vector<T>::clear() noexcept {
 template <typename T>
 constexpr void vector<T>::clear() noexcept {
   size_t old_size = size();
-  // ...
+  // destroy [begin(), end())
   if (!std::is_constant_evaluated()) {
     __annotate_shrink(old_size); // ASAN annotation
     __invalidate_all_iterators(); // Debug mode checks
@@ -593,8 +629,7 @@ int Y = f();
 
 ### We can already do some of it
 
-- type_traits
-- operators like `sizeof`
+type_traits, operators like `sizeof`
 
 ```c++
 struct Foo {
@@ -609,6 +644,8 @@ constexpr bool is_aggregate = std::is_aggregate_v<Foo>;
 ====
 
 ### But we're severely limited
+
+Currently, limited to queries whose answer is a primitive type
 
 ```c++
 struct Foo {
@@ -652,11 +689,11 @@ using MetaFoo = reflexpr(Foo);
 
 using Members = std::reflect::get_data_members_t<MetaFoo>;
 
-using X = std::reflect::get_element_t<0, Members>; // Not an int!
+using MetaX = std::reflect::get_element_t<0, Members>; // Not an int!
 
-constexpr bool is_public = std::reflect::is_public_v<X>;
+constexpr bool is_public = std::reflect::is_public_v<MetaX>;
 
-using TypeOfX = std::reflect::get_reflected_type_t<X>; // This is int!
+using X = std::reflect::get_reflected_type_t<MetaX>; // This is int!
 ```
 
 Note:
@@ -692,20 +729,17 @@ Note:
 ```c++
 template <typename T>
 void dump() {
-  constexpr std::reflect::Record const* metaT = reflexpr(T);
-  std::cout << "name: " << metaT->get_display_name() << std::endl;
+  constexpr std::reflect::Record metaT = reflexpr(T);
+  std::cout << "name: " << metaT.get_display_name() << std::endl;
   std::cout << "members:" << std::endl;
-  for(RecordMember const* member : metaT->get_public_data_members()) {
-      std::cout << member->get_type()->get_display_name() << ' '
-                << member->get_name() << std::endl;
+  std::vector<RecordMember> members = metaT.get_public_data_members();
+  for (auto member : members) {
+    std::cout << member.get_type().get_display_name() << ' '
+              << member.get_name() << std::endl;
   }
 }
 
-struct Foo {
-  int x;
-  long y;
-  float z;
-};
+struct Foo { int x; long y; float z; };
 
 int main() {
   dump<Foo>();
@@ -724,20 +758,16 @@ int main() {
 
 ### Step 3: Code generation
 
-====
-
-### So far, we can:
-
+Note:
+So far, we can:
 1. Write complex compile-time algorithms
 2. Query the compiler AST
 
-====
-
-### Now: modify the compiler's AST
+Goal: modify the compiler's AST
 
 ====
 
-### Alternatives on the table:
+### A few alternatives on the table
 
 1. Raw string injection
 2. Programmatic API
@@ -745,15 +775,36 @@ int main() {
 
 ====
 
+### Illustration: `hash_append` ([N3980](http://wg21.link/N3980))
+
+```c++
+struct Foo {
+  std::tuple<short, unsigned char, unsigned char> date_;
+  std::vector<std::pair<int, int>>                data_;
+};
+
+template <typename HashAlgorithm>
+void hash_append(HashAlgorithm& h, Foo const& foo) noexcept {
+  using std::hash_append;
+  hash_append(h, foo.date_);
+  hash_append(h, foo.data_);
+}
+```
+
+====
+
 ### Raw string injection ([p0633](http://wg21.link/p0633))
 
 ```c++
-template <HashAlgorithm H, SimpleStruct S>
-void hash_append(H& h, S const& s) {
+template <typename HashAlgorithm H, typename Struct>
+void hash_append(HashAlgorithm& h, Struct const& s) {
   constexpr {
-    for (meta::info member : meta::data_members(reflexpr(s))) {
-      meta::queue(
-        meta::code("hash_append(h, s.", meta::name(member), ");")
+    auto members = reflexpr(s).get_public_data_members();
+    for (RecordMember member : members) {
+      std::reflect::queue(
+        std::reflect::code(
+          "hash_append(h, s.", member.get_name(), ");"
+        )
       );
     }
   }
@@ -765,15 +816,15 @@ void hash_append(H& h, S const& s) {
 ### Programmatic API ([p0633](http://wg21.link/p0633))
 
 ```c++
-template <HashAlgorithm H, SimpleStruct S>
-void hash_append(H& h, S const& s) {
+template <typename HashAlgorithm H, typename Struct>
+void hash_append(HashAlgorithm& h, Struct const& s) {
   constexpr {
-    for (meta::info member : meta::data_members(reflexpr(s))) {
-      meta::queue(meta::expr_statement(
-        meta::call_by_name(
-          "hash_append",
-          reflexpr(h),
-          meta::select_member(reflexpr(s), member))));
+    auto members = reflexpr(s).get_public_data_members();
+    for (RecordMember member : members) {
+      std::reflect::queue(
+        std::reflect::expr_statement(
+          std::reflect::call_by_name(
+            "hash_append", reflexpr(h), member)));
     }
   }
 }
@@ -784,11 +835,14 @@ void hash_append(H& h, S const& s) {
 ### Token-sequence injection ([p0633](http://wg21.link/p0633))
 
 ```c++
-template <HashAlgorithm H, SimpleStruct S>
-void hash_append(H& h, S const& s) {
+template <typename HashAlgorithm H, typename Struct>
+void hash_append(HashAlgorithm& h, Struct const& s) {
   constexpr {
-    for (meta::info member : meta::data_members(reflexpr(s))) {
-      -> { hash_append(h, s.(.member.)); }
+    auto members = reflexpr(s).get_public_data_members();
+    for (RecordMember member : members) {
+      -> {
+        hash_append(h, s. (.member.) );
+      }
     }
   }
 }
@@ -799,19 +853,17 @@ void hash_append(H& h, S const& s) {
 ### What about metaclasses ([p0707](http://wg21.link/p0707))?
 
 ```c++
-constexpr void interface(meta::type target, meta::type const source) {
-  for (auto f : source.functions()) {
-    if (!f.has_access())
-      f.make_public();
-    f.make_pure_virtual();
-    ->(target) f;
-  }
-  ->(target) { virtual ~(source.name()$)() noexcept {} }
-}
-
-interface Shape { // MAGIC!!!
+interface Shape {
   int area() const;
   void scale_by(double factor);
+};
+
+// magic...
+
+struct Shape {
+  virtual int area() const = 0;
+  virtual void scale_by(double factor) = 0;
+  virtual ~Shape() noexcept { }
 };
 ```
 
@@ -819,7 +871,47 @@ interface Shape { // MAGIC!!!
 
 ### Metaclasses are built on top of code generation
 
-They're not a replacement for it
+```c++
+constexpr void interface(std::reflect::Type target,
+                         std::reflect::Type const source)
+{
+  constexpr {
+    for (auto f : source.functions()) {
+      if (!f.has_access())
+        f.make_public();
+      f.make_pure_virtual();
+      ->(target) { f };
+    }
+    ->(target) { virtual ~ (.source.) () noexcept {} }
+  }
+}
+```
+
+====
+
+### Imagine
+
+```c++
+constexpr std::reflect::Type
+interface(std::reflect::Type const source) {
+  std::reflect::Type target = source;
+  constexpr {
+    for (auto f : source.functions()) {
+      if (!f.has_access())
+        f.make_public();
+      f.make_pure_virtual();
+      ->(target) { f };
+    }
+    ->(target) { virtual ~ (.source.) () noexcept {} }
+  }
+  return target;
+}
+
+using Shape = interface(reflexpr(struct { // hand waving
+  int area() const;
+  void scale_by(double factor);
+}));
+```
 
 ====
 
@@ -828,7 +920,7 @@ They're not a replacement for it
 - Provide a way to influence the AST
 - Multiple options on the table
 - Should interact nicely with `constexpr` control flow
-- Metaclasses? Maybe, but it's an orthogonal problem
+- Metaclasses? Maybe, but they're built on top
 
 ====
 
@@ -873,9 +965,9 @@ are designed could make them useless or downright harmful.
 
 ====
 
-### With great power comes great...
+### With great power comes...
 
-### C++ programs!!! <!-- .element: class="fragment" -->
+### Lots of fun!!! <!-- .element: class="fragment" -->
 
 ====
 
