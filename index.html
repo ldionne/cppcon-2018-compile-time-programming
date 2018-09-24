@@ -693,15 +693,13 @@ constexpr auto members = ???; // list of Foo's members
 ```c++
 struct Foo {
   int x;
-  int y;
+  long y;
 };
 
 using MetaFoo = reflexpr(Foo);
-
 using Members = std::reflect::get_data_members_t<MetaFoo>;
 
 using MetaX = std::reflect::get_element_t<0, Members>; // Not an int!
-
 constexpr bool is_public = std::reflect::is_public_v<MetaX>;
 
 using X = std::reflect::get_reflected_type_t<MetaX>; // This is int!
@@ -714,16 +712,40 @@ Note:
 
 ====
 
+### Another example: printing an `enum`
+
+```c++
+enum class Color { RED, GREEN, BLUE, YELLOW, PURPLE };
+
+std::ostream& operator<<(std::ostream& out, Color color) {
+  using Enumerators = std::reflect::get_enumerators_t<reflexpr(Color)>;
+  auto helper = []<std::size_t ...i>(std::index_sequence<i...>) {
+    ([=] {
+      using Enumerator = std::reflect::get_element_t<i, Enumerators>;
+      if (color == std::reflect::get_constant_v<Enumerator>) {
+        std::cout << std::reflect::get_name_v<Enumerator>;
+      }
+    }(), ...);
+  };
+
+  constexpr std::size_t N = std::reflect::get_size_v<Enumerators>;
+  helper(std::make_index_sequence<N>{});
+  return out;
+}
+```
+
+Note:
+Live example: https://wandbox.org/permlink/sXTQqw54It7hMGes
+
+====
+
 ### Other features:
 - Get source line/column of a type definition
 - Get the name of an entity as a string
 - Get member types/enums/etc of a type
 - Get base classes of a type
-- Get enumerators of an enum
 - Get whether variable is `static`/`constexpr`
 - Get properties of base classes: `virtual`/`public`/etc
-
-<!-- TODO: Consider adding examples for those features -->
 
 ====
 
@@ -731,30 +753,41 @@ Note:
 - Reflecting functions: [p0670](http://wg21.link/p0670)
 - Plans to reflect on arbitrary expressions too!!!
 
-<!-- TODO: Consider adding examples for those features -->
-
 ====
 
 ### Final syntax not settled yet: [p0953](http://wg21.link/p0953)
 
 ```c++
-template <typename T>
-void dump() {
-  constexpr std::reflect::Record metaT = reflexpr(T);
-  std::cout << "name: " << metaT.get_display_name() << '\n';
-  std::cout << "members:" << '\n';
-  std::vector<RecordMember> members = metaT.get_public_data_members();
-  for (auto member : members) {
-    std::cout << member.get_type().get_display_name() << ' '
-              << member.get_name() << '\n';
+struct Foo {
+  int x;
+  long y;
+};
+
+constexpr std::reflect::Record meta_foo = reflexpr(Foo);
+constexpr std::vector members = meta_foo.get_data_members();
+
+constexpr std::reflect::RecordMember meta_x = members[0];
+constexpr bool is_public = meta_x.is_public();
+constexpr std::reflect::Type x = meta_x.get_reflected_type();
+
+using X = unreflexpr(x); // This is int!
+```
+
+====
+
+### Another example: print an `enum`
+
+```c++
+enum class Color { RED, GREEN, BLUE, YELLOW, PURPLE };
+
+std::ostream& operator<<(std::ostream& out, Color color) {
+  std::vector enumerators = reflexpr(Color).get_enumerators();
+  for constexpr (std::reflect::Enumerator enumerator : enumerators) {
+    if (color == enumerator.get_constant()) {
+      out << enumerator.get_name();
+    }
   }
-}
-
-struct Foo { int x; long y; float z; };
-
-int main() {
-  dump<Foo>();
-  return 0;
+  return out;
 }
 ```
 
