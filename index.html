@@ -184,9 +184,11 @@ Even committee members are confused
 
 ### So, what's the plan?
 
-1. Make (almost) all of C++ available in `constexpr`
-2. Provide a `constexpr` API to _query_ the compiler
-3. Provide a means for modifying the AST
+<ol>
+  <li class="fragment">Make (almost) all of C++ available in `constexpr`</li>
+  <li class="fragment">Provide a `constexpr` API to _query_ the compiler</li>
+  <li class="fragment">Provide a means for modifying the AST</li>
+</ol>
 
 Note:
 Even though this is C++, we do have a plan!
@@ -203,16 +205,16 @@ logic at compile-time.
 #### In C++11, `constexpr` was very limited
 
 ```c++
-constexpr std::size_t countlower(char const* s,
-                                 std::size_t count = 0)
+constexpr std::size_t count_lower(char const* s,
+                                  std::size_t count = 0)
 {
   return *s == '\0' ? count
                     : 'a' <= *s && *s <= 'z'
-                        ?  countlower(s+1, count + 1)
-                        : countlower(s+1, count);
+                        ? count_lower(s+1, count + 1)
+                        : count_lower(s+1, count);
 }
 
-static_assert(countlower("aBCdeF") == 3, "");
+static_assert(count_lower("aBCdeF") == 3, "");
 ```
 
 ====
@@ -220,7 +222,7 @@ static_assert(countlower("aBCdeF") == 3, "");
 #### In C++14, many restrictions lifted
 
 ```c++
-constexpr std::size_t countlower(char const* s) {
+constexpr std::size_t count_lower(char const* s) {
   std::size_t count = 0;
   for (; *s != '\0'; ++s) {
     if ('a' <= *s && *s <= 'z') {
@@ -230,7 +232,7 @@ constexpr std::size_t countlower(char const* s) {
   return count;
 }
 
-static_assert(countlower("aBCdeF") == 3, "");
+static_assert(count_lower("aBCdeF") == 3, "");
 ```
 
 Note:
@@ -255,7 +257,7 @@ This means we can't use variable-size containers
 ```c++
 template <typename Predicate>
 constexpr std::vector<int>
-filter(int const* it, int const* last, Predicate pred) {
+keep_if(int const* it, int const* last, Predicate pred) {
   std::vector<int> result;
   for (; it != last; ++it) {
     if (pred(*it)) {
@@ -267,7 +269,7 @@ filter(int const* it, int const* last, Predicate pred) {
 
 constexpr int ints[] = {1, 2, 3, 4, 5, 6};
 constexpr std::vector<int> odds =
-                      filter(begin(ints), end(ints), is_odd);
+                      keep_if(begin(ints), end(ints), is_odd);
 // doesn't work!
 ```
 
@@ -278,7 +280,7 @@ We have to use fixed-size arrays, which is painful
 ```c++
 template <std::size_t K, typename Predicate>
 constexpr std::array<int, K>
-filter(int const* it, int const* last, Predicate pred) {
+keep_if(int const* it, int const* last, Predicate pred) {
   std::array<int, K> result;
   int* out = begin(result);
   for (; it != last; ++it) {
@@ -291,7 +293,7 @@ filter(int const* it, int const* last, Predicate pred) {
 
 constexpr int ints[] = {1, 2, 3, 4, 5, 6};
 constexpr std::array<int, 3> odds =
-                      filter<3>(begin(ints), end(ints), is_odd);
+                      keep_if<3>(begin(ints), end(ints), is_odd);
 ```
 
 Note:
@@ -430,7 +432,7 @@ In C++20, this will just work:
 ```c++
 template <typename Predicate>
 constexpr std::vector<int>
-filter(int const* it, int const* last, Predicate pred) {
+keep_if(int const* it, int const* last, Predicate pred) {
   std::vector<int> result;
   for (; it != last; ++it) {
     if (pred(*it)) {
@@ -442,7 +444,7 @@ filter(int const* it, int const* last, Predicate pred) {
 
 constexpr std::vector<int> ints = {1, 2, 3, 4, 5, 6};
 constexpr std::vector<int> odds =
-                      filter(begin(ints), end(ints), is_odd);
+                      keep_if(begin(ints), end(ints), is_odd);
 ```
 
 ====
