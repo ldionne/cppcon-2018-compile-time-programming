@@ -719,8 +719,8 @@ enum class Color { RED, GREEN, BLUE, YELLOW, PURPLE };
 
 std::ostream& operator<<(std::ostream& out, Color color) {
   using Enumerators = std::reflect::get_enumerators_t<reflexpr(Color)>;
-  auto helper = []<std::size_t ...i>(std::index_sequence<i...>) {
-    ([=] {
+  auto helper = [&]<std::size_t ...i>(std::index_sequence<i...>) {
+    ([&] {
       using Enumerator = std::reflect::get_element_t<i, Enumerators>;
       if (color == std::reflect::get_constant_v<Enumerator>) {
         std::cout << std::reflect::get_name_v<Enumerator>;
