@@ -801,7 +801,7 @@ std::ostream& operator<<(std::ostream& out, Color color) {
 
 ==============================================================================
 
-### Step 3: Code generation
+### Step 3: Code injection
 
 Note:
 So far, we can:
@@ -916,7 +916,7 @@ struct Shape {
 
 ====
 
-### Metaclasses are built on top of code generation
+### Metaclasses are built on top of code injection
 
 ```c++
 constexpr void interface(std::reflect::Type target,
@@ -962,7 +962,7 @@ using Shape = interface(reflexpr(struct { // hand waving
 
 ====
 
-### Status of code generation
+### Status of code injection
 
 - Provide a way to influence the AST
 - Multiple options on the table
@@ -989,7 +989,7 @@ __This is just my optimistic prediction, not a promise!__
 ### C++23
 
 - Even more `constexpr`: where do we stop?
-- Some code generation mechanism
+- Some code injection mechanism
 - `<reflect>` based on `constexpr`
 
 ====
