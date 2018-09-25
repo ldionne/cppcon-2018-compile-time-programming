@@ -793,6 +793,51 @@ std::ostream& operator<<(std::ostream& out, Color color) {
 
 ====
 
+### `for constexpr`? Similar to [P0589](http://wg21.link/p0589)
+
+```c++
+std::ostream& operator<<(std::ostream& out, Color color) {
+  constexpr std::vector enumerators = reflexpr(Color).get_enumerators();
+  for constexpr (std::reflect::Enumerator enumerator : enumerators) {
+    if (color == enumerator.get_constant()) {
+      out << enumerator.get_name();
+    }
+  }
+  return out;
+}
+```
+
+Note:
+Explain it can't be a normal for-loop, because we could for example
+instantiate templates inside the for-loop. So this needs to be an
+unrolled for-loop.
+
+====
+
+### Expands roughly to
+
+```c++
+std::ostream& operator<<(std::ostream& out, Color color) {
+  constexpr std::vector enumerators = reflexpr(Color).get_enumerators();
+  {
+    constexpr std::reflect::Enumerator enumerator = enumerators[0];
+    if (color == enumerator.get_constant()) {
+      out << enumerator.get_name();
+    }
+  }
+  {
+    constexpr std::reflect::Enumerator enumerator = enumerators[1];
+    if (color == enumerator.get_constant()) {
+      out << enumerator.get_name();
+    }
+  }
+  ...
+  return out;
+}
+```
+
+====
+
 ### Status of reflection
 
 1. Reflection TS figures out the compiler query API
