@@ -498,7 +498,11 @@ int main(int argc, char* argv[]) {
 
 ====
 
-If the destructor would not clean up, then it's not a constant expression
+If executing the destructor would not clean up, then it's not a constant expression
+
+====
+
+### Wait what?
 
 ====
 
@@ -508,7 +512,10 @@ function call is leak-free for the provided inputs.
 
 ====
 
-The compiler turns into a leak detector!
+The compiler turns into a leak detector 😏
+
+Note:
+I'm putting Valgrind out of business
 
 ====
 
