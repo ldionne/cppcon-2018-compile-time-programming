@@ -108,6 +108,8 @@ Note:
 
 ====
 
+<!-- .slide: class="slide-hidden" -->
+
 ### Defining flexible APIs
 
 ```c++
@@ -163,8 +165,6 @@ int main() {
 ==============================================================================
 
 ### Solving these problems used to be a nerdy topic
-
-Even among C++ programmers :-)
 
 ====
 
@@ -515,10 +515,6 @@ If executing the destructor would not clean up, then it's not a constant express
 
 ====
 
-### Wait what?
-
-====
-
 #### Corollary
 If you can evaluate a function call in a constant expression, then that
 function call is leak-free for the provided inputs.
@@ -534,14 +530,14 @@ I'm putting Valgrind out of business
 
 ### Future `constexpr` additions
 
-- `std::string`
-- `std::map` and `std::unordered_map`
-- `std::optional`/`std::variant`?
-- Math functions?
-- Almost everything? Join the effort!
-
-Note:
-`std::thread` in `constexpr` will compile with multiple threads!
+<ul>
+<li class="fragment">`std::string`</li>
+<li class="fragment">`std::map` and `std::unordered_map`</li>
+<li class="fragment">`std::optional`/`std::variant`?</li>
+<li class="fragment">Math functions?</li>
+<li class="fragment"><strike>`std::thread` (multithreaded compilation)</strike> 🤕</li>
+<li class="fragment">Almost everything? Join the effort!</li>
+</ul>
 
 ====
 
@@ -574,18 +570,6 @@ Note:
 - Compiler hands you an arbitrary chunk of memory
 - Trusts you to initialize and manage lifetime properly
 - Otherwise, UB during compilation
-
-====
-
-### Why are these limitations a problem?
-
-====
-
-Most `constexpr` functions should work both at compile-time and at runtime
-
-====
-
-We don't want to pessimize good runtime C++ code
 
 ====
 
@@ -648,11 +632,33 @@ int Y = f();
 
 ====
 
+### Another common problem
+
+`constexpr` does not require compile-time evaluation
+
+====
+
+#### Enter `constexpr!` ([p1073](http://wg21.link/p1073))
+
+```c++
+constexpr! int square(int x) {
+  return x * x;
+}
+
+constexpr int x = square(3); // OK
+
+int y = 3;
+int z = square(y); // ERROR: square(y) is not a constant expression
+```
+
+====
+
 ### Summary of `constexpr` changes
 
 - Expand `constexpr` to support more use cases
 - Allow persisting data structures to the _data segment_
 - Allow writing different code for `constexpr` and runtime when needed
+- Require compile-time evaluation with `constexpr!`
 
 ==============================================================================
 
@@ -693,16 +699,17 @@ struct Foo {
 constexpr auto members = ???; // list of Foo's members
 ```
 
-====
-
-### We lack:
-
+Note:
+We lack:
 - A way to query many properties
 - A way to represent the answer to those queries
 
 ====
 
 ### Enter the Reflection TS: [n4746](http://wg21.link/n4746)
+
+Note:
+Explain what a TS is.
 
 ====
 
@@ -738,6 +745,8 @@ Note:
 
 ====
 
+<!-- .slide: class="slide-hidden" -->
+
 ### Another example: printing an `enum`
 
 ```c++
@@ -749,7 +758,7 @@ std::ostream& operator<<(std::ostream& out, Color color) {
     ([&] {
       using Enumerator = std::reflect::get_element_t<i, Enumerators>;
       if (color == std::reflect::get_constant_v<Enumerator>) {
-        std::cout << std::reflect::get_name_v<Enumerator>;
+        out << std::reflect::get_name_v<Enumerator>;
       }
     }(), ...);
   };
@@ -861,7 +870,7 @@ std::ostream& operator<<(std::ostream& out, Color color) {
       out << enumerator.get_name();
     }
   }
-  ...
+  // ...
   return out;
 }
 ```
@@ -897,6 +906,12 @@ Goal: modify the compiler's AST
 
 ====
 
+### Go to Herb's keynote 😀
+
+====
+
+<!-- .slide: class="slide-hidden" -->
+
 ### Illustration: creating interfaces
 
 ```c++
@@ -918,6 +933,8 @@ struct Shape {
 
 ====
 
+<!-- .slide: class="slide-hidden" -->
+
 ### Define the transformation
 
 ```c++
@@ -930,7 +947,7 @@ constexpr! void interface(std::reflect::Type source) {
   }
 
   -> class C {
-    virtual ~C() = default;
+    virtual ~C() noexcept { }
   };
 }
 ```
@@ -939,6 +956,8 @@ Note:
 The fragments are queued for injection and will be injected
 
 ====
+
+<!-- .slide: class="slide-hidden" -->
 
 ### Apply the transformation
 
@@ -957,10 +976,14 @@ class IShape {
 
 ====
 
+<!-- .slide: class="slide-hidden" -->
+
 ### What about metaclasses ([p0707](http://wg21.link/p0707))?
-They are built on top of code injection
+They can be built on top of code injection
 
 ====
+
+<!-- .slide: class="slide-hidden" -->
 
 ```c++
 class(interface) IShape {
@@ -982,6 +1005,8 @@ class IShape {
 ```
 
 ====
+
+<!-- .slide: class="slide-hidden" -->
 
 ### Status of code injection
 
