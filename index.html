@@ -887,99 +887,26 @@ Goal: modify the compiler's AST
 
 ====
 
-### A few alternatives on the table
+### Alternatives considered in [p0633](http://wg21.link/p0633)
 
-1. Raw string injection
-2. Programmatic API
-3. Token-sequence injection
-
-====
-
-### Illustration: `hash_append` ([N3980](http://wg21.link/N3980))
-
-```c++
-struct Foo {
-  std::tuple<short, unsigned char, unsigned char> date_;
-  std::vector<std::pair<int, int>>                data_;
-};
-
-template <typename HashAlgorithm>
-void hash_append(HashAlgorithm& h, Foo const& foo) noexcept {
-  using std::hash_append;
-  hash_append(h, foo.date_);
-  hash_append(h, foo.data_);
-}
-```
+<ol>
+<li class="fragment strike" data-fragment-index="1">Raw string injection</li>
+<li class="fragment strike" data-fragment-index="1">Programmatic API</li>
+<li> Token-sequence injection</li>
+</ol>
 
 ====
 
-### Raw string injection ([p0633](http://wg21.link/p0633))
+### Illustration: creating interfaces
 
 ```c++
-template <typename HashAlgorithm H, typename Struct>
-void hash_append(HashAlgorithm& h, Struct const& s) {
-  constexpr {
-    auto members = reflexpr(s).get_public_data_members();
-    for (RecordMember member : members) {
-      std::reflect::queue(
-        std::reflect::code(
-          "hash_append(h, s.", member.get_name(), ");"
-        )
-      );
-    }
-  }
-}
-```
-
-====
-
-### Programmatic API ([p0633](http://wg21.link/p0633))
-
-```c++
-template <typename HashAlgorithm H, typename Struct>
-void hash_append(HashAlgorithm& h, Struct const& s) {
-  constexpr {
-    auto members = reflexpr(s).get_public_data_members();
-    for (RecordMember member : members) {
-      std::reflect::queue(
-        std::reflect::expr_statement(
-          std::reflect::call_by_name(
-            "hash_append", reflexpr(h), member)));
-    }
-  }
-}
-```
-
-====
-
-### Token-sequence injection ([p0633](http://wg21.link/p0633))
-
-```c++
-template <typename HashAlgorithm H, typename Struct>
-void hash_append(HashAlgorithm& h, Struct const& s) {
-  constexpr {
-    auto members = reflexpr(s).get_public_data_members();
-    for (RecordMember member : members) {
-      -> {
-        hash_append(h, s. (.member.) );
-      }
-    }
-  }
-}
-```
-
-====
-
-### What about metaclasses ([p0707](http://wg21.link/p0707))?
-
-```c++
-interface Shape {
+struct Shape {
   int area() const;
   void scale_by(double factor);
 };
 ```
 
-Magically transforms to
+Should magically transform to
 
 ```c++
 struct Shape {
@@ -991,48 +918,67 @@ struct Shape {
 
 ====
 
-### Metaclasses are built on top of code injection
+### Define the transformation
 
 ```c++
-constexpr void interface(std::reflect::Type target,
-                         std::reflect::Type const source)
-{
-  constexpr {
-    for (auto f : source.functions()) {
-      if (!f.has_access())
-        f.make_public();
-      f.make_pure_virtual();
-      ->(target) { f };
-    }
-    ->(target) { virtual ~ (.source.) () noexcept {} }
+constexpr! void interface(std::reflect::Type source) {
+  for (auto f : source.functions()) {
+    if (!f.has_access())
+      f.make_public();
+    f.make_pure_virtual();
+    -> f;
   }
+
+  -> class C {
+    virtual ~C() = default;
+  };
 }
+```
+
+Note:
+The fragments are queued for injection and will be injected
+
+====
+
+### Apply the transformation
+
+```c++
+struct Shape {
+  int area() const;
+  void scale_by(double factor);
+};
+
+class IShape {
+  constexpr {
+    interface(reflexpr(Shape));
+  }
+};
 ```
 
 ====
 
-### Imagine
+### What about metaclasses ([p0707](http://wg21.link/p0707))?
+They are built on top of code injection
+
+====
 
 ```c++
-constexpr std::reflect::Type
-interface(std::reflect::Type const source) {
-  std::reflect::Type target = source;
-  constexpr {
-    for (auto f : source.functions()) {
-      if (!f.has_access())
-        f.make_public();
-      f.make_pure_virtual();
-      ->(target) { f };
-    }
-    ->(target) { virtual ~ (.source.) () noexcept {} }
-  }
-  return target;
-}
-
-using Shape = interface(reflexpr(struct { // hand waving
+class(interface) IShape {
   int area() const;
   void scale_by(double factor);
-}));
+};
+```
+
+Desugars roughly to
+
+```c++
+class IShape {
+  class __IShape {
+    int area() const;
+    void scale_by(double factor);
+  };
+  constexpr { interface(reflexpr(__IShape)); }
+};
 ```
 
 ====
@@ -1040,9 +986,9 @@ using Shape = interface(reflexpr(struct { // hand waving
 ### Status of code injection
 
 - Provide a way to influence the AST
-- Multiple options on the table
+- Exact means not settled yet
 - Should interact nicely with `constexpr` control flow
-- Metaclasses? Maybe, but they're built on top
+- Metaclasses can be built on top
 
 ====
 
