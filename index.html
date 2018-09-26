@@ -23,6 +23,19 @@
       link.href = window.location.search.match( /print-pdf/gi ) ? 'reveal/css/print/pdf.css' : 'reveal/css/print/paper.css';
       document.getElementsByTagName( 'head' )[0].appendChild( link );
     </script>
+    <style>
+    .column {
+        float: left;
+        width: 50%;
+    }
+
+    /* Clear floats after the columns */
+    .row:after {
+        content: "";
+        display: table;
+        clear: both;
+    }
+  </style>
   </head>
   <body>
     <div class="reveal">
@@ -1075,6 +1088,31 @@ are designed could make them useless or downright harmful.
 ### With great power comes...
 
 ### Lots of fun!!! <!-- .element: class="fragment" -->
+
+====
+
+### Acknowledgements
+
+<div class="row">
+  <div class="column">Andrew Sutton</div>
+  <div class="column">Herb Sutter</div>
+</div>
+<div class="row">
+  <div class="column">Antony Polukhin</div>
+  <div class="column">Matúš Chochlík</div>
+</div>
+<div class="row">
+  <div class="column">Axel Naumann</div>
+  <div class="column">Nina Ranns</div>
+</div>
+<div class="row">
+  <div class="column">David Sankel</div>
+  <div class="column">Richard Smith</div>
+</div>
+<div class="row">
+  <div class="column">David Vandevoorde</div>
+  <div class="column">&amp; more...</div>
+</div>
 
 ====
 
