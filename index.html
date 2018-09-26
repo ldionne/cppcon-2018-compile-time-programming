@@ -625,6 +625,9 @@ constexpr void vector<T>::clear() noexcept {
 }
 ```
 
+Note:
+Be careful, `if constexpr (std::is_constant_evaluated())` is always `true`.
+
 ====
 
 ### How this works
@@ -808,8 +811,8 @@ using X = unreflexpr(x); // This is int!
 enum class Color { RED, GREEN, BLUE, YELLOW, PURPLE };
 
 std::ostream& operator<<(std::ostream& out, Color color) {
-  std::vector enumerators = reflexpr(Color).get_enumerators();
-  for constexpr (std::reflect::Enumerator enumerator : enumerators) {
+  constexpr std::vector enumerators = reflexpr(Color).get_enumerators();
+  for... (constexpr std::reflect::Enumerator enumerator : enumerators) {
     if (color == enumerator.get_constant()) {
       out << enumerator.get_name();
     }
@@ -820,12 +823,12 @@ std::ostream& operator<<(std::ostream& out, Color color) {
 
 ====
 
-### `for constexpr`? Similar to [P0589](http://wg21.link/p0589)
+### `for...`? [P0589](http://wg21.link/p0589)
 
 ```c++
 std::ostream& operator<<(std::ostream& out, Color color) {
   constexpr std::vector enumerators = reflexpr(Color).get_enumerators();
-  for constexpr (std::reflect::Enumerator enumerator : enumerators) {
+  for... (constexpr std::reflect::Enumerator enumerator : enumerators) {
     if (color == enumerator.get_constant()) {
       out << enumerator.get_name();
     }
