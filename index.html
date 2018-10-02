@@ -39,6 +39,11 @@
   </head>
   <body>
     <div class="reveal">
+      <div class='footer'>
+        <p style="font-size: 1.5rem; transform: translateX(.5em); position:absolute; bottom:0;">
+          <a href="https://twitter.com/LouisDionne">@LouisDionne</a>, CppCon 2018
+        </p>
+      </div>
       <div class="slides">
         <section data-markdown=""
                  data-separator="^====+$"
@@ -904,12 +909,6 @@ Goal: modify the compiler's AST
 
 ====
 
-### Go to Herb's keynote 😀
-
-====
-
-<!-- .slide: class="slide-hidden" -->
-
 ### Illustration: creating interfaces
 
 ```c++
@@ -930,8 +929,6 @@ struct Shape {
 ```
 
 ====
-
-<!-- .slide: class="slide-hidden" -->
 
 ### Define the transformation
 
@@ -955,8 +952,6 @@ The fragments are queued for injection and will be injected
 
 ====
 
-<!-- .slide: class="slide-hidden" -->
-
 ### Apply the transformation
 
 ```c++
@@ -974,14 +969,10 @@ class IShape {
 
 ====
 
-<!-- .slide: class="slide-hidden" -->
-
 ### What about metaclasses ([p0707](http://wg21.link/p0707))?
 They can be built on top of code injection
 
 ====
-
-<!-- .slide: class="slide-hidden" -->
 
 ```c++
 class(interface) IShape {
@@ -1004,13 +995,11 @@ class IShape {
 
 ====
 
-<!-- .slide: class="slide-hidden" -->
-
 ### Status of code injection
 
 - Provide a way to influence the AST
 - Exact means not settled yet
-- Should interact nicely with `constexpr` control flow
+- Should interact well with `constexpr` control flow
 - Metaclasses can be built on top
 
 ====
